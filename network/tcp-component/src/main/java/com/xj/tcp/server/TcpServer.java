@@ -1,11 +1,19 @@
 package com.xj.tcp.server;
 
+import com.alibaba.fastjson2.JSON;
 import com.xj.tcp.client.DeviceInfo;
+import com.xj.tcp.message.BaseMessage;
+import com.xj.tcp.message.HeartbeatMessage;
 import io.vertx.core.Vertx;
+import io.vertx.core.buffer.Buffer;
 import io.vertx.core.net.NetServer;
 import io.vertx.core.net.NetSocket;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class TcpServer {
+
+    private static final Logger logger = LoggerFactory.getLogger(TcpServer.class);
     private final Vertx vertx;
     private final DeviceManager deviceManager = new DeviceManager();
 
@@ -33,16 +41,29 @@ public class TcpServer {
             if (message instanceof HeartbeatMessage) {
                 handleHeartbeat((HeartbeatMessage) message, socket);
             }
+            logger.info(deviceManager.getDeviceIdBySocket(socket));
         });
 
         socket.closeHandler(v -> {
-            String deviceId = getDeviceIdBySocket(socket); // 根据socket查找设备ID
-            deviceManager.removeDevice(deviceId);
+            String deviceId = deviceManager.getDeviceIdBySocket(socket); // 根据socket查找设备ID
+            if (deviceId != null) {
+                deviceManager.removeDevice(deviceId);
+                logger.info("Device {} disconnected", deviceId);
+            }
         });
     }
 
     // 解码消息（示例）
     private BaseMessage decodeMessage(Buffer buffer) {
+        String messageStr = buffer.toString();
+        if (JSON.isValid(messageStr)) {
+            // JSON
+            BaseMessage message = JSON.parseObject(messageStr, BaseMessage.class);
+            logger.info("收到json数据：{}", message);
+        } else {
+            // 二进制
+        }
+
         // 实际解析协议，例如 JSON 或二进制协议
         return new HeartbeatMessage("device-001"); // 示例
     }
